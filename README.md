@@ -1,8 +1,8 @@
 # AI PR Review Agent
 
-A GitHub Action that reviews pull requests with Claude and posts a
-structured comment back on the PR — bugs, security issues, missing test
-coverage, and style, each checked in its own focused pass.
+A GitHub Action that reviews pull requests with Groq's `openai/gpt-oss-120b`
+and posts a structured comment back on the PR — bugs, security issues,
+missing test coverage, and style, each checked in its own focused pass.
 
 Works on any repo, any language. It reads a diff and writes a comment;
 nothing about it is tied to a specific domain or industry.
@@ -28,7 +28,7 @@ checks whether the pipeline actually catches each one. Run it after touching
 a prompt, before trusting the change:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-...
+export GROQ_API_KEY=gsk_...
 python eval/run_evals.py
 ```
 
@@ -61,7 +61,8 @@ GitHubClient.post_review_comment()
 
 ## Using it on your own repo
 
-1. Add `ANTHROPIC_API_KEY` as a repo secret (Settings → Secrets and
+1. Get a free API key at [console.groq.com](https://console.groq.com/keys).
+2. Add it as a repo secret named `GROQ_API_KEY` (Settings → Secrets and
    variables → Actions).
 2. Copy `.github/workflows/example-usage.yml` into your repo (or reference
    this repo directly once it's published).
@@ -72,7 +73,7 @@ GitHubClient.post_review_comment()
 
 ```bash
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-...
+export GROQ_API_KEY=gsk_...
 python eval/run_evals.py
 ```
 

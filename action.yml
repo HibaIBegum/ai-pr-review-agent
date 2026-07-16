@@ -1,10 +1,10 @@
 name: "AI PR Review"
-description: "Reviews pull request diffs with Claude across bug, security, test-coverage, and style passes, then posts a structured summary comment."
+description: "Reviews pull request diffs with Groq (openai/gpt-oss-120b) across bug, security, test-coverage, and style passes, then posts a structured summary comment."
 author: "Hiba Iqbal Begum"
 
 inputs:
-  anthropic-api-key:
-    description: "Anthropic API key"
+  groq-api-key:
+    description: "Groq API key"
     required: true
   github-token:
     description: "Token used to read the PR diff and post the review comment"
@@ -26,7 +26,7 @@ runs:
     - name: Run review
       shell: bash
       env:
-        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        GROQ_API_KEY: ${{ inputs.groq-api-key }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_EVENT_PATH: ${{ github.event_path }}

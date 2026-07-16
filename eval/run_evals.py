@@ -7,7 +7,7 @@ prompt change without a repeatable way to check it didn't regress. Run this
 after touching PASS_PROMPTS in reviewer.py, before trusting the change.
 
 Usage:
-    export ANTHROPIC_API_KEY=sk-...
+    export GROQ_API_KEY=gsk_...
     python eval/run_evals.py
 """
 from __future__ import annotations

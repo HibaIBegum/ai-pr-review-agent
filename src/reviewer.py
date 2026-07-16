@@ -12,11 +12,16 @@ from __future__ import annotations
 import json
 import os
 
-from anthropic import Anthropic
+from groq import Groq
 
 from .schema import Issue, PassResult, ReviewResult
 
-MODEL = "claude-sonnet-4-6"
+# GPT-OSS 120B: Groq's flagship open-weight model, chosen over the Llama
+# options for its reasoning capability on multi-category structured output --
+# and it's cheaper per token than llama-3.3-70b-versatile at time of writing.
+# Swap this string if Groq deprecates it -- check console.groq.com/docs/models
+# first, since availability here changes faster than most APIs.
+MODEL = "openai/gpt-oss-120b"
 
 PASS_PROMPTS: dict[str, str] = {
     "bug": (
@@ -59,15 +64,22 @@ RESPONSE_SCHEMA_NOTE = (
 
 class ReviewAgent:
     def __init__(self, api_key: str | None = None):
-        self.client = Anthropic(api_key=api_key or os.environ["ANTHROPIC_API_KEY"])
+        self.client = Groq(api_key=api_key or os.environ["GROQ_API_KEY"])
 
     def _call(self, prompt: str) -> str:
-        response = self.client.messages.create(
+        # response_format={"type": "json_object"} turns on Groq's JSON mode --
+        # every pass prompt already includes the word "JSON", which Groq
+        # requires when this mode is on. This isn't a guarantee the schema is
+        # followed exactly (that needs strict json_schema mode, which not all
+        # Groq models support yet), but it substantially cuts down on stray
+        # prose wrapping the JSON, on top of the fence-stripping below.
+        response = self.client.chat.completions.create(
             model=MODEL,
-            max_tokens=1500,
+            max_completion_tokens=1500,
+            response_format={"type": "json_object"},
             messages=[{"role": "user", "content": prompt}],
         )
-        return "".join(block.text for block in response.content if block.type == "text")
+        return response.choices[0].message.content
 
     def _run_pass(self, category: str, diff: str) -> PassResult:
         prompt = f"{PASS_PROMPTS[category]}\n\n{RESPONSE_SCHEMA_NOTE}\n\nDiff:\n{diff}"

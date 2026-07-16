@@ -1,6 +1,6 @@
 """Structured schemas for review issues and pass results.
 
-Using pydantic buys us two things: (1) a shape we can describe to Claude in
+Using pydantic buys us two things: (1) a shape we can describe to the model in
 the prompt so it knows exactly what's expected back, and (2) validation on
 the way in -- if a response doesn't match, we know immediately instead of
 silently posting garbage to a real pull request.
