@@ -1,0 +1,22 @@
+diff --git a/app/utils.py b/app/utils.py
+index 4444444..5555555 100644
+--- a/app/utils.py
++++ b/app/utils.py
+@@ -1,6 +1,6 @@
+-def slugify(text):
+-    return text.lower().replace(" ", "-")
++def slugify(text: str) -> str:
++    """Convert text to a URL-safe slug."""
++    return text.strip().lower().replace(" ", "-")
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 6666666..7777777 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -1,4 +1,7 @@
+ from app.utils import slugify
+
+ def test_slugify_basic():
+     assert slugify("Hello World") == "hello-world"
++
++def test_slugify_strips_whitespace():
++    assert slugify("  Hello World  ") == "hello-world"

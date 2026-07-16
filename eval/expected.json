@@ -1,0 +1,18 @@
+{
+  "case_sql_injection.diff": {
+    "expect_category": "security",
+    "expect_file": "app/db.py"
+  },
+  "case_missing_null_check.diff": {
+    "expect_category": "bug",
+    "expect_file": "app/orders.py"
+  },
+  "case_missing_tests.diff": {
+    "expect_category": "test-coverage",
+    "expect_file": "app/pricing.py"
+  },
+  "case_clean_code.diff": {
+    "expect_category": null,
+    "expect_file": null
+  }
+}

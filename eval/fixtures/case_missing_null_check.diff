@@ -1,0 +1,15 @@
+diff --git a/app/orders.py b/app/orders.py
+index 1234567..89abcde 100644
+--- a/app/orders.py
++++ b/app/orders.py
+@@ -22,6 +22,12 @@ def apply_discount(order, discount_code):
+     return order
+
++def get_shipping_estimate(order):
++    warehouse = order.get("warehouse")
++    days = warehouse.get("lead_time_days")
++    return days + 3
++
+ def cancel_order(order):
+     order["status"] = "cancelled"
+     return order

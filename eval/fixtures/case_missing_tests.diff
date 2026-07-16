@@ -1,0 +1,19 @@
+diff --git a/app/pricing.py b/app/pricing.py
+index 2222222..3333333 100644
+--- a/app/pricing.py
++++ b/app/pricing.py
+@@ -5,6 +5,17 @@ def base_price(item):
+     return item["price"]
+
++def tiered_price(item, quantity):
++    price = base_price(item)
++    if quantity >= 100:
++        return price * 0.8
++    elif quantity >= 50:
++        return price * 0.9
++    elif quantity >= 10:
++        return price * 0.95
++    return price
++
+ def format_price(cents):
+     return f"${cents / 100:.2f}"
