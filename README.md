@@ -95,3 +95,4 @@ instead, so the core logic is testable without needing a live PR.
   concatenated; a genuinely duplicate finding from two passes will show up
   twice. A cheap fix worth doing next: dedupe by (file, line-proximity,
   category) in code before formatting the comment.
+# test
