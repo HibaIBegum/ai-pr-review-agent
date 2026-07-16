@@ -96,3 +96,4 @@ instead, so the core logic is testable without needing a live PR.
   twice. A cheap fix worth doing next: dedupe by (file, line-proximity,
   category) in code before formatting the comment.
 # test
+
