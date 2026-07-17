@@ -16,4 +16,4 @@ jobs:
 
       - uses: ./
         with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          groq-api-key: ${{ secrets.GROQ_API_KEY }}

@@ -108,10 +108,12 @@ class ReviewAgent:
             try:
                 result = self._run_pass(category, diff)
                 all_issues.extend(result.issues)
-            except Exception:
-                # A failed pass shouldn't take down the whole review -- report
-                # what we have plus a note, rather than posting nothing.
+            except Exception as exc:
+                # A failed pass shouldn't take down the whole review -- but
+                # silently swallowing *why* it failed makes this undebuggable.
+                # Print goes straight into the GitHub Actions step log.
                 failed_passes.append(category)
+                print(f"[review] '{category}' pass failed: {type(exc).__name__}")
 
         return ReviewResult(
             summary=self._summarize(all_issues, failed_passes),

@@ -18,6 +18,7 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
+        cache: "pip"
 
     - name: Install dependencies
       shell: bash
@@ -25,9 +26,10 @@ runs:
 
     - name: Run review
       shell: bash
+      working-directory: ${{github.action_path}}
       env:
         GROQ_API_KEY: ${{ inputs.groq-api-key }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_EVENT_PATH: ${{ github.event_path }}
-      run: python ${{ github.action_path }}/src/main.py
+      run: python -m src.main
