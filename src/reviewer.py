@@ -113,7 +113,7 @@ class ReviewAgent:
                 # silently swallowing *why* it failed makes this undebuggable.
                 # Print goes straight into the GitHub Actions step log.
                 failed_passes.append(category)
-                print(f"[review] '{category}' pass failed: {type(exc).__name__}: {exc}")
+                print(f"[review] '{category}' pass failed: {type(exc).__name__}")
 
         return ReviewResult(
             summary=self._summarize(all_issues, failed_passes),
