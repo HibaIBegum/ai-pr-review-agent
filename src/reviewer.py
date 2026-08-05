@@ -12,9 +12,14 @@ from __future__ import annotations
 import json
 import os
 
-from groq import Groq
-
+from groq import BadRequestError, Groq
 from .schema import Issue, PassResult, ReviewResult
+from .diff_chunker import parse_diff, pack_chunks
+
+# Diffs at or under this size skip chunking entirely -- same behavior as
+# today, zero extra API calls for the common case.
+CHUNK_THRESHOLD_CHARS = 8000
+CHUNK_BUDGET_CHARS = 6000
 
 # GPT-OSS 120B: Groq's flagship open-weight model, chosen over the Llama
 # options for its reasoning capability on multi-category structured output --
@@ -22,6 +27,13 @@ from .schema import Issue, PassResult, ReviewResult
 # Swap this string if Groq deprecates it -- check console.groq.com/docs/models
 # first, since availability here changes faster than most APIs.
 MODEL = "openai/gpt-oss-120b"
+
+# Bumped from 1500: chunked diffs can contain several files' worth of change,
+# and categories that tend to find many small issues (bug, test-coverage,
+# style) were getting truncated mid-JSON on larger chunks, which Groq's
+# JSON-mode validator rejects outright as a BadRequestError before the
+# content ever reaches our own retry logic.
+MAX_COMPLETION_TOKENS = 3000
 
 PASS_PROMPTS: dict[str, str] = {
     "bug": (
@@ -75,7 +87,7 @@ class ReviewAgent:
         # prose wrapping the JSON, on top of the fence-stripping below.
         response = self.client.chat.completions.create(
             model=MODEL,
-            max_completion_tokens=1500,
+            max_completion_tokens=MAX_COMPLETION_TOKENS,
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": prompt}],
         )
@@ -83,24 +95,53 @@ class ReviewAgent:
 
     def _run_pass(self, category: str, diff: str) -> PassResult:
         prompt = f"{PASS_PROMPTS[category]}\n\n{RESPONSE_SCHEMA_NOTE}\n\nDiff:\n{diff}"
-        text = self._call(prompt)
-        cleaned = text.replace("```json", "").replace("```", "").strip()
 
         try:
+            text = self._call(prompt)
+            cleaned = text.replace("```json", "").replace("```", "").strip()
             return PassResult(**json.loads(cleaned))
-        except (json.JSONDecodeError, TypeError, ValueError):
-            # Malformed JSON is the single most common failure mode when an
-            # LLM is asked for structured output -- one corrective retry is
-            # worth it before letting the pass fail outright.
+        except (json.JSONDecodeError, TypeError, ValueError, BadRequestError):
+            # Two distinct failure modes land here, treated the same way: the
+            # model returned prose instead of JSON (JSONDecodeError/ValueError),
+            # or Groq's own JSON-mode validator rejected a truncated response
+            # before it even got back to us (BadRequestError). The whole first
+            # _call() is now inside this try -- previously BadRequestError
+            # happened before any parsing step and skipped retry entirely.
             retry_prompt = (
-                f"{prompt}\n\nYour previous response was not valid JSON matching "
-                "the schema. Return ONLY the corrected JSON, nothing else."
+                f"{prompt}\n\nYour previous response was cut off or was not "
+                "valid JSON. Return ONLY valid JSON matching the schema. If "
+                "there are many issues, include only the 5 most important to "
+                "keep the response short."
             )
             text = self._call(retry_prompt)
             cleaned = text.replace("```json", "").replace("```", "").strip()
             return PassResult(**json.loads(cleaned))  # let this raise if it still fails
 
     def review(self, diff: str, passes: tuple[str, ...] = tuple(PASS_PROMPTS)) -> ReviewResult:
+        if len(diff) <= CHUNK_THRESHOLD_CHARS:
+            return self._review_chunk(diff, passes)
+
+        files = parse_diff(diff)
+        chunks = pack_chunks(files, budget_chars=CHUNK_BUDGET_CHARS)
+
+        all_issues: list[Issue] = []
+        failed_categories: set[str] = set()
+
+        for chunk in chunks:
+            result = self._review_chunk(chunk, passes)
+            all_issues.extend(result.issues)
+            failed_categories.update(result.failed_passes)
+
+        failed_passes = sorted(failed_categories)
+        return ReviewResult(
+            summary=self._summarize(all_issues, failed_passes),
+            issues=all_issues,
+            verdict=self._verdict_from_issues(all_issues, failed_passes),
+            failed_passes=failed_passes,
+        )
+
+    def _review_chunk(self, diff: str, passes: tuple[str, ...]) -> ReviewResult:
+        """Runs all passes against one diff (or diff chunk) and merges them."""
         all_issues: list[Issue] = []
         failed_passes: list[str] = []
 
@@ -109,20 +150,20 @@ class ReviewAgent:
                 result = self._run_pass(category, diff)
                 all_issues.extend(result.issues)
             except Exception as exc:
-                # A failed pass shouldn't take down the whole review -- but
-                # silently swallowing *why* it failed makes this undebuggable.
-                # Print goes straight into the GitHub Actions step log.
                 failed_passes.append(category)
                 print(f"[review] '{category}' pass failed: {type(exc).__name__}")
 
         return ReviewResult(
             summary=self._summarize(all_issues, failed_passes),
             issues=all_issues,
-            verdict=self._verdict_from_issues(all_issues),
+            verdict=self._verdict_from_issues(all_issues, failed_passes),
+            failed_passes=failed_passes,
         )
 
     @staticmethod
-    def _verdict_from_issues(issues: list[Issue]) -> str:
+    def _verdict_from_issues(issues: list[Issue], failed_passes: list[str]) -> str:
+        if failed_passes:
+            return "incomplete"
         if any(i.severity == "high" for i in issues):
             return "request_changes"
         if issues:

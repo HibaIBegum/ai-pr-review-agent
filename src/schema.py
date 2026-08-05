@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 Severity = Literal["high", "medium", "low"]
 Category = Literal["bug", "security", "test-coverage", "style"]
-Verdict = Literal["approve", "comment", "request_changes"]
+Verdict = Literal["approve", "comment", "request_changes","incomplete"]
 
 
 class Issue(BaseModel):
@@ -35,5 +35,6 @@ class ReviewResult(BaseModel):
     """Final, merged review ready to post as a PR comment."""
 
     summary: str
-    issues: list[Issue]
+    issues: list[Issue] = Field(default_factory=list)
     verdict: Verdict
+    failed_passes: list[str] = Field(default_factory=list)

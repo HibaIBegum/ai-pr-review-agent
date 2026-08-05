@@ -17,7 +17,20 @@ SEVERITY_EMOJI = {"high": "\U0001F534", "medium": "\U0001F7E1", "low": "\u26AA"}
 
 
 def format_comment(result: ReviewResult) -> str:
-    lines = ["## \U0001F916 AI PR Review", "", result.summary, ""]
+    lines = ["## \U0001F916 AI PR Review", ""]
+
+    if result.failed_passes:
+        skipped = ", ".join(result.failed_passes)
+        plural = "es" if len(result.failed_passes) != 1 else ""
+
+        lines.append(
+            f"### \u26A0\uFE0F Review incomplete \u2014 {skipped} pass{plural} failed "
+            "after retry and were skipped. Findings below are partial; check "
+            "the skipped categories manually before merging."
+        )
+        lines.append("")
+    lines.append(result.summary)
+    lines.append("")
 
     if result.issues:
         lines.append("| | File | Category | Issue | Suggestion |")
@@ -71,7 +84,7 @@ def main() -> int:
     client.post_review_comment(pr_number, format_comment(result))
 
     print(f"Posted review with {len(result.issues)} issue(s). Verdict: {result.verdict}")
-    return 1 if result.verdict == "request_changes" else 0
+    return 1 if result.verdict in ("request_changes" , "incomplete") else 0
 
 
 if __name__ == "__main__":
