@@ -15,6 +15,12 @@ import os
 from groq import Groq
 
 from .schema import Issue, PassResult, ReviewResult
+from .diff_chunker import parse_diff, pack_chunks
+
+# Diffs at or under this size skip chunking entirely -- same behavior as
+# today, zero extra API calls for the common case.
+CHUNK_THRESHOLD_CHARS = 8000
+CHUNK_BUDGET_CHARS = 6000
 
 # GPT-OSS 120B: Groq's flagship open-weight model, chosen over the Llama
 # options for its reasoning capability on multi-category structured output --
@@ -101,6 +107,29 @@ class ReviewAgent:
             return PassResult(**json.loads(cleaned))  # let this raise if it still fails
 
     def review(self, diff: str, passes: tuple[str, ...] = tuple(PASS_PROMPTS)) -> ReviewResult:
+        if len(diff) <= CHUNK_THRESHOLD_CHARS:
+            return self._review_chunk(diff, passes)
+
+        files = parse_diff(diff)
+        chunks = pack_chunks(files, budget_chars=CHUNK_BUDGET_CHARS)
+
+        all_issues: list[Issue] = []
+        failed_categories: set[str] = set()
+
+        for chunk in chunks:
+            result = self._review_chunk(chunk, passes)
+            all_issues.extend(result.issues)
+            failed_categories.update(result.failed_passes)
+
+        failed_passes = sorted(failed_categories)
+        return ReviewResult(
+            summary=self._summarize(all_issues, failed_passes),
+            issues=all_issues,
+            verdict=self._verdict_from_issues(all_issues, failed_passes),
+            failed_passes=failed_passes,
+        )
+    def _review_chunk(self, diff: str, passes: tuple[str, ...]) -> ReviewResult:
+        """Runs all passes against one diff (or diff chunk) and merges them."""
         all_issues: list[Issue] = []
         failed_passes: list[str] = []
 
@@ -109,20 +138,20 @@ class ReviewAgent:
                 result = self._run_pass(category, diff)
                 all_issues.extend(result.issues)
             except Exception as exc:
-                # A failed pass shouldn't take down the whole review -- but
-                # silently swallowing *why* it failed makes this undebuggable.
-                # Print goes straight into the GitHub Actions step log.
                 failed_passes.append(category)
                 print(f"[review] '{category}' pass failed: {type(exc).__name__}")
 
         return ReviewResult(
             summary=self._summarize(all_issues, failed_passes),
             issues=all_issues,
-            verdict=self._verdict_from_issues(all_issues),
+            verdict=self._verdict_from_issues(all_issues, failed_passes),
+            failed_passes=failed_passes,
         )
 
     @staticmethod
-    def _verdict_from_issues(issues: list[Issue]) -> str:
+    def _verdict_from_issues(issues: list[Issue], failed_passes: list[str]) -> str:
+        if failed_passes:
+            return "incomplete"
         if any(i.severity == "high" for i in issues):
             return "request_changes"
         if issues:
