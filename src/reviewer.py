@@ -13,7 +13,6 @@ import json
 import os
 
 from groq import Groq
-
 from .schema import Issue, PassResult, ReviewResult
 from .diff_chunker import parse_diff, pack_chunks
 
@@ -139,7 +138,7 @@ class ReviewAgent:
                 all_issues.extend(result.issues)
             except Exception as exc:
                 failed_passes.append(category)
-                print(f"[review] '{category}' pass failed: {type(exc).__name__}")
+                print(f"[review] '{category}' pass failed: {type(exc).__name__}: {exc}")
 
         return ReviewResult(
             summary=self._summarize(all_issues, failed_passes),
