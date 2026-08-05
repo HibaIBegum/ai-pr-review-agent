@@ -151,7 +151,7 @@ class ReviewAgent:
                 all_issues.extend(result.issues)
             except Exception as exc:
                 failed_passes.append(category)
-                print(f"[review] '{category}' pass failed: {type(exc).__name__}: {exc}")
+                print(f"[review] '{category}' pass failed: {type(exc).__name__}")
 
         return ReviewResult(
             summary=self._summarize(all_issues, failed_passes),
